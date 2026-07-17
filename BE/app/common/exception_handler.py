@@ -1,8 +1,9 @@
 import logging
 from typing import Optional, Any
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 import app.common.exception as exception
 from app.common.responses import BaseResponse
@@ -33,6 +34,24 @@ def register_exception_handlers(app: FastAPI):
             status_code=code,
             content=response_data.model_dump(),
             headers=headers
+        )
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(
+        request: Request,
+        exc: StarletteHTTPException,
+    ):
+        error_code = (
+            "UNAUTHORIZED"
+            if exc.status_code == status.HTTP_401_UNAUTHORIZED
+            else "HTTP_ERROR"
+        )
+
+        return create_error_response(
+            code=exc.status_code,
+            message=str(exc.detail),
+            error_code=error_code,
+            headers=exc.headers,
         )
 
     @app.exception_handler(exception.AppError)
