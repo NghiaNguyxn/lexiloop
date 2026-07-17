@@ -11,6 +11,8 @@ from app.common.exception_handler import register_exception_handlers
 from app.core.config import settings
 from app.users import router as user_router
 from app.auth import router as auth_router
+from app.decks import router as deck_router
+from app.decks import admin_router as deck_admin_router
 
 
 # Cấu hình Logging chuẩn: Thời gian xảy ra - Tên Module - Cấp độ lỗi - Nội dung chi tiết
@@ -67,3 +69,5 @@ async def health_check():
 
 app.include_router(user_router.router)
 app.include_router(auth_router.router)
+app.include_router(deck_router.router)
+app.include_router(deck_admin_router.router)
