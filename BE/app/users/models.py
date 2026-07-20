@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from sqlalchemy import Enum as SAEnum
 from sqlmodel import DateTime, Field, SQLModel, func
 
 from app.users.enums import Role
@@ -14,7 +15,15 @@ class User(SQLModel, table=True):
     phone: str | None = Field(default=None, unique=True, index=True, max_length=20)
     full_name: str | None = Field(default=None, max_length=100)
     avatar_url: str | None = Field(default=None, max_length=2048)
-    role: Role = Field(default=Role.USER, nullable=False)
+    role: Role = Field(
+        default=Role.USER,
+        nullable=False,
+        sa_type=SAEnum(
+            Role,
+            name="role",
+            values_callable=lambda enum_class: [member.value for member in enum_class],
+        ),
+    )
     hashed_password: str = Field(nullable=False, max_length=255)
     is_deleted: bool = Field(default=False, nullable=False)
     reset_token: str | None = Field(default=None, max_length=255)
