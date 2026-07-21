@@ -13,6 +13,8 @@ from app.users import router as user_router
 from app.auth import router as auth_router
 from app.decks import router as deck_router
 from app.decks import admin_router as deck_admin_router
+from app.vocabularies import router as vocabulary_router
+from app.vocabularies import admin_router as vocabulary_admin_router
 
 
 # Cấu hình Logging chuẩn: Thời gian xảy ra - Tên Module - Cấp độ lỗi - Nội dung chi tiết
@@ -71,3 +73,5 @@ app.include_router(user_router.router)
 app.include_router(auth_router.router)
 app.include_router(deck_router.router)
 app.include_router(deck_admin_router.router)
+app.include_router(vocabulary_router.router)
+app.include_router(vocabulary_admin_router.router)
