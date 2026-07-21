@@ -3,7 +3,7 @@ import unicodedata
 from collections.abc import Sequence
 
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from app.common.time import utc_now
 from app.vocabularies.enums import PartOfSpeech
@@ -224,6 +224,44 @@ def get_active_vocabularies_in_deck(
     return session.exec(statement).all()
 
 
+def get_vocabularies_for_admin(
+    session: Session,
+    include_deleted: bool = False,
+    deck_id: int | None = None,
+    query: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[Vocabulary]:
+    """Retrieve vocabularies for administrators with optional filters."""
+
+    statement = select(Vocabulary)
+
+    if not include_deleted:
+        statement = statement.where(col(Vocabulary.is_deleted).is_(False))
+
+    if deck_id is not None:
+        statement = statement.where(Vocabulary.deck_id == deck_id)
+
+    if query is not None:
+        normalized_query = _normalize_semantic_text(query)
+        if normalized_query:
+            statement = statement.where(
+                col(Vocabulary.normalized_word).contains(
+                    normalized_query,
+                    autoescape=True,
+                )
+            )
+
+    statement = (
+        statement
+        .order_by(Vocabulary.created_at.desc(), Vocabulary.id.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+
+    return session.exec(statement).all()
+
+
 def get_active_vocabulary_item_by_id(
     session: Session,
     vocabulary_item_id: int,
@@ -238,40 +276,36 @@ def get_active_vocabulary_item_by_id(
     return session.exec(statement).first()
 
 
-def get_active_items_in_vocabulary(
+def get_all_active_items_in_vocabulary(
     session: Session,
     vocabulary_id: int,
-    limit: int = 50,
-    offset: int = 0,
 ) -> list[VocabularyItem]:
-    """Retrieve active vocabulary items in display order with pagination."""
+    """Retrieve all active items in display order for a vocabulary."""
 
-    statement = (
-        select(VocabularyItem)
-        .where(
-            VocabularyItem.vocabulary_id == vocabulary_id,
-            VocabularyItem.is_deleted.is_(False),
-        )
-        .order_by(
-            VocabularyItem.position.asc(),
-            VocabularyItem.id.asc(),
-        )
-        .offset(offset)
-        .limit(limit)
+    statement = select(VocabularyItem).where(
+        VocabularyItem.vocabulary_id == vocabulary_id,
+        VocabularyItem.is_deleted.is_(False),
+    ).order_by(
+        VocabularyItem.position.asc(),
+        VocabularyItem.id.asc(),
     )
 
     return session.exec(statement).all()
 
 
-def _get_all_active_items_in_vocabulary(
+def get_all_items_in_vocabulary_including_deleted(
     session: Session,
     vocabulary_id: int,
 ) -> list[VocabularyItem]:
-    """Retrieve every active item for transaction-wide operations."""
+    """Retrieve all items for an administrator, including deleted items."""
 
-    statement = select(VocabularyItem).where(
-        VocabularyItem.vocabulary_id == vocabulary_id,
-        VocabularyItem.is_deleted.is_(False),
+    statement = (
+        select(VocabularyItem)
+        .where(VocabularyItem.vocabulary_id == vocabulary_id)
+        .order_by(
+            VocabularyItem.position.asc(),
+            VocabularyItem.id.asc(),
+        )
     )
 
     return session.exec(statement).all()
@@ -429,7 +463,7 @@ def delete_vocabulary(session: Session, vocabulary: Vocabulary) -> None:
     vocabulary.is_deleted = True
     vocabulary.deleted_at = deleted_at
 
-    items = _get_all_active_items_in_vocabulary(
+    items = get_all_active_items_in_vocabulary(
         session=session,
         vocabulary_id=vocabulary.id,
     )
