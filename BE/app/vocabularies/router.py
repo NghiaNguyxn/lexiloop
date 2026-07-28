@@ -91,11 +91,27 @@ def get_vocabularies_in_deck(
         limit=limit,
         offset=offset,
     )
+    meaning_counts = vocabulary_service.get_active_meaning_counts(
+        session=session,
+        vocabulary_ids=[
+            vocabulary.id
+            for vocabulary in vocabularies
+            if vocabulary.id is not None
+        ],
+    )
+    result = [
+        VocabularyListResponse.model_validate(vocabulary).model_copy(
+            update={
+                "meaning_count": meaning_counts.get(vocabulary.id, 0),
+            },
+        )
+        for vocabulary in vocabularies
+    ]
 
     return create_success_response(
         code=status.HTTP_200_OK,
         message="Vocabularies retrieved successfully.",
-        result=vocabularies,
+        result=result,
     )
 
 

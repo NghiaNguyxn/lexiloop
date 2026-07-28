@@ -2,6 +2,7 @@ import logging
 import unicodedata
 from collections.abc import Sequence
 
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
@@ -226,6 +227,33 @@ def get_active_vocabularies_in_deck(
     )
 
     return session.exec(statement).all()
+
+
+def get_active_meaning_counts(
+    session: Session,
+    vocabulary_ids: Sequence[int],
+) -> dict[int, int]:
+    """Count active meanings for multiple vocabularies in one aggregate query."""
+
+    if not vocabulary_ids:
+        return {}
+
+    statement = (
+        select(
+            VocabularyItem.vocabulary_id,
+            func.count(VocabularyItem.id),
+        )
+        .where(
+            col(VocabularyItem.vocabulary_id).in_(vocabulary_ids),
+            VocabularyItem.is_deleted.is_(False),
+        )
+        .group_by(VocabularyItem.vocabulary_id)
+    )
+
+    return {
+        vocabulary_id: meaning_count
+        for vocabulary_id, meaning_count in session.exec(statement).all()
+    }
 
 
 def get_vocabularies_for_admin(

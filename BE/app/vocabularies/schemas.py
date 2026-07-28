@@ -58,6 +58,7 @@ class VocabularyListResponse(SQLModel):
     id: int
     deck_id: int
     word: str
+    meaning_count: int = Field(default=0, ge=0)
     is_deleted: bool
     deleted_at: datetime | None
     created_at: datetime
