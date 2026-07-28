@@ -4,6 +4,7 @@ from app.auth.dependencies import AdminUserDep
 from app.common.responses import BaseResponse, create_success_response
 from app.database.databases import SessionDep
 from app.vocabularies import service as vocabulary_service
+from app.vocabularies.content import service as content_service
 from app.vocabularies.dependencies import (
     ActiveAdminVocabularyDep,
     AdminVocabularyDep,
@@ -65,7 +66,25 @@ def get_vocabulary_by_id_as_admin(
         session=session,
         vocabulary_id=vocabulary_id,
     )
-    result = build_vocabulary_detail_response(vocabulary, items)
+    item_ids = [item.id for item in items if item.id is not None]
+    collocations = (
+        content_service.get_all_collocations_for_items_as_admin(
+            session=session,
+            vocabulary_item_ids=item_ids,
+        )
+    )
+    example_sentences = (
+        content_service.get_all_example_sentences_for_items_as_admin(
+            session=session,
+            vocabulary_item_ids=item_ids,
+        )
+    )
+    result = build_vocabulary_detail_response(
+        vocabulary=vocabulary,
+        items=items,
+        collocations=collocations,
+        example_sentences=example_sentences,
+    )
 
     return create_success_response(
         code=status.HTTP_200_OK,

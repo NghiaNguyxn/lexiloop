@@ -5,6 +5,10 @@ import unicodedata
 from sqlmodel import SQLModel
 from pydantic import Field, field_validator, model_validator
 
+from app.vocabularies.content.schemas import (
+    CollocationResponse,
+    ExampleSentenceResponse,
+)
 from app.vocabularies.enums import CEFRLevel, PartOfSpeech
 
 
@@ -58,17 +62,6 @@ class VocabularyListResponse(SQLModel):
     deleted_at: datetime | None
     created_at: datetime
     updated_at: datetime
-
-
-class VocabularyDetailResponse(SQLModel):
-    id: int
-    deck_id: int
-    word: str
-    is_deleted: bool
-    deleted_at: datetime | None
-    created_at: datetime
-    updated_at: datetime
-    items: list[VocabularyItemResponse] = Field(default_factory=list)
 
 
 class VocabularyItemCreate(SQLModel):
@@ -177,3 +170,19 @@ class VocabularyItemResponse(SQLModel):
     deleted_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class VocabularyItemContentResponse(VocabularyItemResponse):
+    collocations: list[CollocationResponse] = Field(default_factory=list)
+    example_sentences: list[ExampleSentenceResponse] = Field(default_factory=list)
+
+
+class VocabularyDetailResponse(SQLModel):
+    id: int
+    deck_id: int
+    word: str
+    is_deleted: bool
+    deleted_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+    items: list[VocabularyItemContentResponse] = Field(default_factory=list)
