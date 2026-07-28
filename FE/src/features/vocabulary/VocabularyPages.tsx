@@ -343,6 +343,9 @@ function AddMeaningForm({
       await queryClient.invalidateQueries({
         queryKey: ["vocabulary", vocabularyId],
       });
+      await queryClient.invalidateQueries({
+        queryKey: ["vocabularies"],
+      });
       onDone();
     } catch (error) {
       setServerError(
@@ -525,9 +528,14 @@ function MeaningCard({
   const removeItem = useMutation({
     mutationFn: () => vocabularyApi.removeItem(item.id),
     onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: ["vocabulary", item.vocabulary_id],
-      }),
+      Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["vocabulary", item.vocabulary_id],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["vocabularies"],
+        }),
+      ]),
   });
   const removeCollocation = useMutation({
     mutationFn: contentApi.removeCollocation,

@@ -6,6 +6,7 @@ import type {
   User,
   ValidationIssue,
   Vocabulary,
+  VocabularySummary,
   VocabularyInput,
   VocabularyItem,
   VocabularyItemInput,
@@ -241,7 +242,7 @@ export const deckApi = {
 export const vocabularyApi = {
   async list(deckId: number) {
     return unwrap(
-      await apiFetch<ApiResponse<Vocabulary[]>>(
+      await apiFetch<ApiResponse<VocabularySummary[]>>(
         `/decks/${deckId}/vocabularies?limit=100&offset=0`,
       ),
     );

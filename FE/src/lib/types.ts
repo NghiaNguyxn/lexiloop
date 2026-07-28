@@ -115,6 +115,16 @@ export interface Vocabulary {
   items: VocabularyItem[];
 }
 
+export interface VocabularySummary {
+  id: number;
+  deck_id: number;
+  word: string;
+  meaning_count: number;
+  is_deleted: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DeckInput {
   name: string;
   description?: string | null;

@@ -437,13 +437,10 @@ export function DeckDetailPage() {
                 </div>
                 <div>
                   <h3>{vocabulary.word}</h3>
-                  <p>
-                    {vocabulary.items?.[0]?.vietnamese_meaning ||
-                      "Open to view its meanings"}
-                  </p>
                 </div>
                 <span className="badge">
-                  {vocabulary.items?.length ?? 0} meanings
+                  {vocabulary.meaning_count}{" "}
+                  {vocabulary.meaning_count === 1 ? "meaning" : "meanings"}
                 </span>
                 <ArrowRight aria-hidden />
               </Link>

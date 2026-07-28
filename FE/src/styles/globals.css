@@ -1311,7 +1311,7 @@ h3 {
 
 .vocabulary-row {
   display: grid;
-  min-height: 84px;
+  min-height: 74px;
   grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 15px;
