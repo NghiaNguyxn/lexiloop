@@ -22,3 +22,12 @@ sql_database.db
 # IDE / local tooling
 .vscode/
 .idea/
+
+# AI agents
+.agents/
+.codex/
+skills-lock.json
+
+# Design
+design/
+design-system/
