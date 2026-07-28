@@ -10,7 +10,9 @@ cp .env.example .env.local
 npm run dev
 ```
 
-The FastAPI backend defaults to `http://127.0.0.1:8000`.
+The FastAPI backend defaults to `http://localhost:8000`. Open the frontend at
+`http://localhost:5173` so the HttpOnly refresh cookie remains same-site in
+local development.
 
 ## Quality checks
 
