@@ -761,6 +761,7 @@ h3 {
 
 .auth-story {
   position: relative;
+  isolation: isolate;
   display: flex;
   min-height: 100vh;
   flex-direction: column;
@@ -775,6 +776,7 @@ h3 {
 
 .auth-story::after {
   position: absolute;
+  z-index: 0;
   right: -90px;
   bottom: -120px;
   width: 360px;
@@ -782,6 +784,7 @@ h3 {
   border: 18px solid rgb(199 210 254 / 0.15);
   border-radius: 50%;
   content: "";
+  pointer-events: none;
   transform: rotate(-18deg);
 }
 
@@ -937,6 +940,7 @@ h3 {
 .home-hero__orbit {
   position: relative;
   z-index: 1;
+  pointer-events: none;
 }
 
 .home-hero__orbit::before {
@@ -946,6 +950,7 @@ h3 {
   border: 2px dashed rgb(255 255 255 / 0.28);
   border-radius: 50%;
   content: "";
+  pointer-events: none;
   transform: rotate(-20deg) scale(1.25, 0.75);
 }
 
@@ -1106,6 +1111,7 @@ h3 {
 
 .deck-card {
   position: relative;
+  isolation: isolate;
   display: flex;
   min-height: 260px;
   flex-direction: column;
@@ -1123,6 +1129,7 @@ h3 {
 
 .deck-card::before {
   position: absolute;
+  z-index: 0;
   top: -38px;
   right: -30px;
   width: 125px;
@@ -1130,7 +1137,14 @@ h3 {
   border: 12px solid var(--deck-tint, #eef2ff);
   border-radius: 50%;
   content: "";
+  pointer-events: none;
   transform: rotate(-22deg);
+}
+
+/* Decorative geometry must never compete with readable or interactive content. */
+.deck-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .deck-card:hover {
