@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="220" viewBox="0 0 640 220" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">LexiLoop logo</title>
+  <desc id="desc">The LexiLoop vocabulary-card mark with the product name and Learn words. Use them well. tagline.</desc>
+  <style>text { font-family: "Plus Jakarta Sans", Arial, sans-serif !important; }</style>
+
+  <defs>
+    <filter id="card-shadow" x="-30%" y="-30%" width="160%" height="180%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#1E1B4B" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <rect width="640" height="220" rx="28" fill="#F5F7FF"/>
+
+  <g transform="translate(32 30)">
+    <rect width="160" height="160" rx="36" fill="#F5F7FF"/>
+
+    <ellipse
+      cx="80"
+      cy="79"
+      rx="59"
+      ry="36"
+      transform="rotate(-23 80 79)"
+      stroke="#A5B4FC"
+      stroke-width="7"
+      stroke-linecap="round"
+      opacity="0.9"
+    />
+
+    <rect
+      x="35"
+      y="18"
+      width="80"
+      height="104"
+      rx="19"
+      transform="rotate(-8 35 18)"
+      fill="#818CF8"
+    />
+
+    <rect
+      x="51"
+      y="27"
+      width="78"
+      height="104"
+      rx="19"
+      transform="rotate(5 51 27)"
+      fill="#4F46E5"
+      filter="url(#card-shadow)"
+    />
+
+    <rect x="68" y="55" width="43" height="7" rx="3.5" transform="rotate(5 68 55)" fill="#FFFFFF"/>
+    <rect x="66" y="74" width="51" height="7" rx="3.5" transform="rotate(5 66 74)" fill="#C7D2FE"/>
+    <rect x="65" y="93" width="32" height="7" rx="3.5" transform="rotate(5 65 93)" fill="#FDBA74"/>
+
+    <circle cx="130" cy="47" r="10" fill="#EA580C" stroke="#F5F7FF" stroke-width="4"/>
+  </g>
+
+  <text x="222" y="108" fill="#1E1B4B" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="52" font-weight="700" letter-spacing="-2">LexiLoop</text>
+  <text x="225" y="143" fill="#64748B" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="18" font-weight="500">Learn words. Use them well.</text>
+</svg>
