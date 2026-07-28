@@ -1,3 +1,7 @@
+from app.vocabularies.content.models import Collocation, ExampleSentence
+from app.vocabularies.content.presenters import (
+    build_vocabulary_item_content_responses,
+)
 from app.vocabularies.models import Vocabulary, VocabularyItem
 from app.vocabularies.schemas import VocabularyDetailResponse
 
@@ -5,6 +9,8 @@ from app.vocabularies.schemas import VocabularyDetailResponse
 def build_vocabulary_detail_response(
     vocabulary: Vocabulary,
     items: list[VocabularyItem],
+    collocations: list[Collocation],
+    example_sentences: list[ExampleSentence],
 ) -> VocabularyDetailResponse:
     """Build a nested vocabulary response from persisted models."""
 
@@ -21,5 +27,9 @@ def build_vocabulary_detail_response(
         deleted_at=vocabulary.deleted_at,
         created_at=vocabulary.created_at,
         updated_at=vocabulary.updated_at,
-        items=items,
+        items=build_vocabulary_item_content_responses(
+            items=items,
+            collocations=collocations,
+            example_sentences=example_sentences,
+        ),
     )

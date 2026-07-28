@@ -15,6 +15,7 @@ from app.vocabularies.schemas import (
     VocabularyUpdate,
 )
 from app.vocabularies import service as vocabulary_service
+from app.vocabularies.content import service as content_service
 from app.vocabularies.presenters import build_vocabulary_detail_response
 from app.common.responses import BaseResponse, create_success_response
 from app.database.databases import SessionDep
@@ -38,7 +39,23 @@ def get_vocabulary(
         session=session,
         vocabulary_id=vocabulary_id,
     )
-    result = build_vocabulary_detail_response(vocabulary, items)
+    item_ids = [item.id for item in items if item.id is not None]
+    collocations = content_service.get_active_collocations_for_items(
+        session=session,
+        vocabulary_item_ids=item_ids,
+    )
+    example_sentences = (
+        content_service.get_active_example_sentences_for_items(
+            session=session,
+            vocabulary_item_ids=item_ids,
+        )
+    )
+    result = build_vocabulary_detail_response(
+        vocabulary=vocabulary,
+        items=items,
+        collocations=collocations,
+        example_sentences=example_sentences,
+    )
 
     return create_success_response(
         code=status.HTTP_200_OK,
@@ -105,7 +122,12 @@ def create_vocabulary(
         vocabulary_id=vocabulary.id,
     )
 
-    result = build_vocabulary_detail_response(vocabulary, items)
+    result = build_vocabulary_detail_response(
+        vocabulary=vocabulary,
+        items=items,
+        collocations=[],
+        example_sentences=[],
+    )
 
     return create_success_response(
         code=status.HTTP_201_CREATED,

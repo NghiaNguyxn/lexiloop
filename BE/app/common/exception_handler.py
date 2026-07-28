@@ -1,6 +1,7 @@
 import logging
 from typing import Optional, Any
 from fastapi import FastAPI, Request, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -104,6 +105,20 @@ def register_exception_handlers(app: FastAPI):
             error_code=exc.error_code,
             errors=exc.details
         )
+
+
+    @app.exception_handler(RequestValidationError)
+    async def request_validation_exception_handler(
+        request: Request,
+        exc: RequestValidationError,
+    ):
+        return create_error_response(
+            code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            message="Request validation failed.",
+            error_code="REQUEST_VALIDATION_ERROR",
+            errors=jsonable_encoder(exc.errors()),
+        )
+
 
     @app.exception_handler(exception.InternalServerError)
     async def internal_server_exception_handler(request: Request, exc: exception.InternalServerError):

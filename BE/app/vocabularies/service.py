@@ -6,6 +6,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
 from app.common.time import utc_now
+from app.vocabularies.content.service import (
+    mark_content_deleted_for_item,
+    mark_content_deleted_for_items,
+)
 from app.vocabularies.enums import PartOfSpeech
 from app.vocabularies.exceptions import (
     VocabularyAlreadyExistsError,
@@ -459,19 +463,26 @@ def delete_vocabulary(session: Session, vocabulary: Vocabulary) -> None:
     if vocabulary.id is None:
         raise RuntimeError("Cannot delete a vocabulary without an ID.")
 
-    deleted_at = utc_now()
-    vocabulary.is_deleted = True
-    vocabulary.deleted_at = deleted_at
-
-    items = get_all_active_items_in_vocabulary(
-        session=session,
-        vocabulary_id=vocabulary.id,
-    )
-    for item in items:
-        item.is_deleted = True
-        item.deleted_at = deleted_at
-
     try:
+        deleted_at = utc_now()
+        items = get_all_active_items_in_vocabulary(
+            session=session,
+            vocabulary_id=vocabulary.id,
+        )
+        item_ids = [item.id for item in items if item.id is not None]
+        mark_content_deleted_for_items(
+            session=session,
+            vocabulary_item_ids=item_ids,
+            deleted_at=deleted_at,
+        )
+
+        vocabulary.is_deleted = True
+        vocabulary.deleted_at = deleted_at
+
+        for item in items:
+            item.is_deleted = True
+            item.deleted_at = deleted_at
+
         session.commit()
     except Exception:
         session.rollback()
@@ -592,10 +603,17 @@ def delete_vocabulary_item(session: Session, item: VocabularyItem) -> None:
     if item.id is None:
         raise RuntimeError("Cannot delete a vocabulary item without an ID.")
 
-    item.is_deleted = True
-    item.deleted_at = utc_now()
-
     try:
+        deleted_at = utc_now()
+        mark_content_deleted_for_item(
+            session=session,
+            vocabulary_item_id=item.id,
+            deleted_at=deleted_at,
+        )
+
+        item.is_deleted = True
+        item.deleted_at = deleted_at
+
         session.commit()
     except Exception:
         session.rollback()
