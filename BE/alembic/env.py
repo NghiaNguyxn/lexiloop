@@ -10,6 +10,7 @@ from app.users.models import User # noqa: F401
 from app.auth.models import RefreshToken # noqa: F401
 from app.decks.models import Deck # noqa: F401
 from app.vocabularies.models import Vocabulary, VocabularyItem # noqa: F401
+from app.vocabularies.content.models import Collocation, ExampleSentence # noqa: F401
 
 from alembic import context
 
