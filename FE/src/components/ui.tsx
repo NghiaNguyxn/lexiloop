@@ -12,6 +12,7 @@ import {
   type InputHTMLAttributes,
   type ReactNode,
   type TextareaHTMLAttributes,
+  useId,
 } from "react";
 import { Link, type LinkProps } from "react-router-dom";
 
@@ -32,6 +33,7 @@ export function Button({
 }: ButtonProps) {
   return (
     <button
+      type={props.type ?? "button"}
       className={`button button--${variant} ${className}`}
       disabled={disabled || isLoading}
       {...props}
@@ -69,8 +71,17 @@ export const Input = forwardRef<
   { label, error, hint, optional, id, className = "", ...props },
   ref,
 ) {
-  const inputId = id ?? props.name;
-  const descriptionId = `${inputId}-description`;
+  const generatedId = useId();
+  const inputId = id ?? props.name ?? generatedId;
+  const errorId = `${inputId}-error`;
+  const hintId = `${inputId}-hint`;
+  const describedBy = [
+    error ? errorId : null,
+    hint ? hintId : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <div className="field">
       <label className="field__label" htmlFor={inputId}>
@@ -82,16 +93,17 @@ export const Input = forwardRef<
         id={inputId}
         className={`input ${error ? "input--error" : ""} ${className}`}
         aria-invalid={Boolean(error)}
-        aria-describedby={error || hint ? descriptionId : undefined}
+        aria-describedby={describedBy || undefined}
         {...props}
       />
       {error ? (
-        <span id={descriptionId} className="field__error">
+        <span id={errorId} className="field__error" aria-live="polite">
           <WarningCircle aria-hidden size={15} />
           {error}
         </span>
-      ) : hint ? (
-        <span id={descriptionId} className="field__hint">
+      ) : null}
+      {hint ? (
+        <span id={hintId} className="field__hint">
           {hint}
         </span>
       ) : null}
@@ -106,8 +118,17 @@ export const Textarea = forwardRef<
   { label, error, hint, optional, id, className = "", ...props },
   ref,
 ) {
-  const inputId = id ?? props.name;
-  const descriptionId = `${inputId}-description`;
+  const generatedId = useId();
+  const inputId = id ?? props.name ?? generatedId;
+  const errorId = `${inputId}-error`;
+  const hintId = `${inputId}-hint`;
+  const describedBy = [
+    error ? errorId : null,
+    hint ? hintId : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <div className="field">
       <label className="field__label" htmlFor={inputId}>
@@ -119,16 +140,17 @@ export const Textarea = forwardRef<
         id={inputId}
         className={`input textarea ${error ? "input--error" : ""} ${className}`}
         aria-invalid={Boolean(error)}
-        aria-describedby={error || hint ? descriptionId : undefined}
+        aria-describedby={describedBy || undefined}
         {...props}
       />
       {error ? (
-        <span id={descriptionId} className="field__error">
+        <span id={errorId} className="field__error" aria-live="polite">
           <WarningCircle aria-hidden size={15} />
           {error}
         </span>
-      ) : hint ? (
-        <span id={descriptionId} className="field__hint">
+      ) : null}
+      {hint ? (
+        <span id={hintId} className="field__hint">
           {hint}
         </span>
       ) : null}
@@ -139,22 +161,49 @@ export const Textarea = forwardRef<
 export function SelectField({
   label,
   error,
+  hint,
+  optional,
   children,
   id,
   ...props
 }: React.SelectHTMLAttributes<HTMLSelectElement> & FieldProps) {
+  const generatedId = useId();
+  const inputId = id ?? props.name ?? generatedId;
+  const errorId = `${inputId}-error`;
+  const hintId = `${inputId}-hint`;
+  const describedBy = [
+    error ? errorId : null,
+    hint ? hintId : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <div className="field">
-      <label className="field__label" htmlFor={id ?? props.name}>{label}</label>
+      <label className="field__label" htmlFor={inputId}>
+        <span>{label}</span>
+        {optional ? <span className="field__optional">Optional</span> : null}
+      </label>
       <select
-        id={id ?? props.name}
+        id={inputId}
         className={`input select ${error ? "input--error" : ""}`}
         aria-invalid={Boolean(error)}
+        aria-describedby={describedBy || undefined}
         {...props}
       >
         {children}
       </select>
-      {error ? <span className="field__error">{error}</span> : null}
+      {error ? (
+        <span id={errorId} className="field__error" aria-live="polite">
+          <WarningCircle aria-hidden size={15} />
+          {error}
+        </span>
+      ) : null}
+      {hint ? (
+        <span id={hintId} className="field__hint">
+          {hint}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -169,7 +218,11 @@ export function StatusMessage({
   const Icon =
     tone === "success" ? CheckCircle : tone === "error" ? WarningCircle : Info;
   return (
-    <div className={`status-message status-message--${tone}`} role="status">
+    <div
+      className={`status-message status-message--${tone}`}
+      role={tone === "error" ? "alert" : "status"}
+      aria-live={tone === "error" ? "assertive" : "polite"}
+    >
       <Icon aria-hidden size={20} />
       <span>{children}</span>
     </div>
@@ -190,16 +243,22 @@ export function EmptyState({
   title,
   description,
   action,
+  headingLevel = "h2",
 }: {
   icon: ReactNode;
   title: string;
   description: string;
   action?: ReactNode;
+  headingLevel?: "h1" | "h2";
 }) {
+  const Heading = headingLevel;
+
   return (
     <div className="empty-state">
-      <div className="empty-state__icon">{icon}</div>
-      <h2>{title}</h2>
+      <div className="empty-state__icon" aria-hidden>
+        {icon}
+      </div>
+      <Heading>{title}</Heading>
       <p>{description}</p>
       {action}
     </div>

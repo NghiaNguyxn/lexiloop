@@ -106,6 +106,10 @@ export function LoginPage() {
   const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState("");
+  const registrationComplete = Boolean(
+    (location.state as { registrationComplete?: boolean } | null)
+      ?.registrationComplete,
+  );
   const {
     register,
     handleSubmit,
@@ -139,6 +143,11 @@ export function LoginPage() {
       description="Continue building your personal language library."
     >
       <form className="form-stack" onSubmit={onSubmit} noValidate>
+        {registrationComplete ? (
+          <StatusMessage tone="success">
+            Your account is ready. Sign in to continue.
+          </StatusMessage>
+        ) : null}
         {serverError ? (
           <StatusMessage tone="error">{serverError}</StatusMessage>
         ) : null}

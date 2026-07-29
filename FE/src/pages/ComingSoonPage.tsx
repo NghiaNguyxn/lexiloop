@@ -14,6 +14,7 @@ export function ComingSoonPage({ type }: { type: "learn" | "quiz" }) {
           )
         }
         title={isLearn ? "Learning is the next loop" : "Quizzes are coming next"}
+        headingLevel="h1"
         description={
           isLearn
             ? "The vocabulary library is ready. Spaced repetition and study sessions will arrive in the learning phase."

@@ -566,6 +566,7 @@ function MeaningCard({
         <div>
           <span className="meaning-number">{index + 1}</span>
           <div>
+            <h2 className="sr-only">Meaning {index + 1}</h2>
             <div className="meaning-card__badges">
               <span className="badge badge--primary">{item.part_of_speech}</span>
               {item.level ? <span className="badge">{item.level}</span> : null}
@@ -626,12 +627,25 @@ function MeaningCard({
               <div className="content-card" key={collocation.id}>
                 <div><strong>{collocation.phrase}</strong><p>{collocation.vietnamese_meaning || collocation.english_meaning || "No meaning added."}</p></div>
                 <div className="content-card__actions">
-                <button className="icon-button" aria-label={`Edit ${collocation.phrase}`} onClick={() => setComposer({ type: "collocation", existing: collocation })}>
+                <button type="button" className="icon-button" aria-label={`Edit ${collocation.phrase}`} onClick={() => setComposer({ type: "collocation", existing: collocation })}>
                   <NotePencil aria-hidden />
                 </button>
-                <button className="icon-button" aria-label={`Delete ${collocation.phrase}`} onClick={() => removeCollocation.mutate(collocation.id)}>
-                  <Trash aria-hidden />
-                </button>
+                <ConfirmDialog
+                  trigger={
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label={`Delete ${collocation.phrase}`}
+                    >
+                      <Trash aria-hidden />
+                    </button>
+                  }
+                  title="Delete this collocation?"
+                  description={`"${collocation.phrase}" will be removed from this meaning.`}
+                  confirmLabel="Delete collocation"
+                  onConfirm={() => removeCollocation.mutate(collocation.id)}
+                  isLoading={removeCollocation.isPending}
+                />
                 </div>
               </div>
             ))}
@@ -652,14 +666,27 @@ function MeaningCard({
           <div className="content-list">
             {item.example_sentences.map((example) => (
               <blockquote className="example-card" key={example.id}>
-                <div><p>“{example.sentence}”</p>{example.vietnamese_meaning ? <cite>{example.vietnamese_meaning}</cite> : null}</div>
+                <div><q>{example.sentence}</q>{example.vietnamese_meaning ? <cite>{example.vietnamese_meaning}</cite> : null}</div>
                 <div className="content-card__actions">
-                <button className="icon-button" aria-label="Edit example sentence" onClick={() => setComposer({ type: "example", existing: example })}>
+                <button type="button" className="icon-button" aria-label="Edit example sentence" onClick={() => setComposer({ type: "example", existing: example })}>
                   <NotePencil aria-hidden />
                 </button>
-                <button className="icon-button" aria-label="Delete example sentence" onClick={() => removeExample.mutate(example.id)}>
-                  <Trash aria-hidden />
-                </button>
+                <ConfirmDialog
+                  trigger={
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label="Delete example sentence"
+                    >
+                      <Trash aria-hidden />
+                    </button>
+                  }
+                  title="Delete this example sentence?"
+                  description="This example will be removed from the current meaning."
+                  confirmLabel="Delete example"
+                  onConfirm={() => removeExample.mutate(example.id)}
+                  isLoading={removeExample.isPending}
+                />
                 </div>
               </blockquote>
             ))}
