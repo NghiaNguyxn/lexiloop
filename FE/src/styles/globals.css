@@ -1463,6 +1463,15 @@ h3 {
   border-bottom: 1px solid var(--border);
 }
 
+.vocabulary-hero > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+
+.vocabulary-hero > .page-header__actions {
+  flex: 0 0 auto;
+}
+
 .vocabulary-hero h1 {
   margin-bottom: 8px;
   font-size: clamp(3rem, 8vw, 5.7rem);
@@ -1476,20 +1485,25 @@ h3 {
 }
 
 .word-editor {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  width: min(100%, 760px);
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: end;
   gap: 9px;
 }
 
 .word-editor input {
-  min-width: 260px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   padding: 6px 10px;
   border: 0;
   border-bottom: 3px solid var(--primary);
   outline: 0;
   background: transparent;
   color: var(--text);
-  font-size: clamp(2.5rem, 7vw, 5rem);
+  font-size: clamp(2.25rem, 5vw, 4.5rem);
   font-weight: 800;
   letter-spacing: -0.07em;
 }
@@ -1946,6 +1960,10 @@ h3 {
     flex-direction: column;
   }
 
+  .vocabulary-hero > div:first-child {
+    width: 100%;
+  }
+
   .page-header__actions,
   .vocabulary-hero .page-header__actions {
     width: 100%;
@@ -2053,8 +2071,15 @@ h3 {
   }
 
   .word-editor input {
+    grid-column: 1 / -1;
+  }
+
+  .word-editor {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .word-editor .button {
     width: 100%;
-    min-width: 0;
   }
 
   .auth-story {
