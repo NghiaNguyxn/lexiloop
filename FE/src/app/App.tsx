@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import { PageLoader } from "../components/ui";
@@ -38,6 +38,32 @@ const ProfilePage = lazy(() =>
   })),
 );
 
+function getPageTitle(pathname: string) {
+  if (pathname === "/") return "Home";
+  if (pathname === "/login") return "Sign in";
+  if (pathname === "/register") return "Create account";
+  if (pathname === "/decks") return "Decks";
+  if (pathname === "/decks/new") return "Create deck";
+  if (/^\/decks\/\d+\/edit$/.test(pathname)) return "Edit deck";
+  if (/^\/decks\/\d+\/words\/new$/.test(pathname)) return "Add vocabulary";
+  if (/^\/decks\/\d+$/.test(pathname)) return "Deck detail";
+  if (/^\/vocabularies\/\d+$/.test(pathname)) return "Vocabulary detail";
+  if (pathname === "/learn") return "Learn";
+  if (pathname === "/quiz") return "Quiz";
+  if (pathname === "/profile") return "Profile and security";
+  return "Page not found";
+}
+
+function RouteTitle() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    document.title = `${getPageTitle(pathname)} | LexiLoop`;
+  }, [pathname]);
+
+  return null;
+}
+
 function ProtectedLayout() {
   const { user, isBootstrapping } = useAuth();
   const location = useLocation();
@@ -72,6 +98,7 @@ function NotFoundPage() {
 export function App() {
   return (
     <Suspense fallback={<PageLoader />}>
+      <RouteTitle />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />

@@ -8,8 +8,14 @@ import {
   Sparkle,
   UserCircle,
 } from "@phosphor-icons/react";
-import { useState } from "react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import {
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useNavigationType,
+} from "react-router-dom";
 import { useAuth } from "../features/auth/AuthProvider";
 
 const navigation = [
@@ -25,6 +31,20 @@ export function AppShell() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const navigationType = useNavigationType();
+  const mainContentRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      mainContentRef.current?.focus({ preventScroll: true });
+
+      if (navigationType !== "POP") {
+        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [location.pathname, navigationType]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -66,21 +86,31 @@ export function AppShell() {
               <small>{user?.email}</small>
             </span>
           </div>
-          <button className="nav-item" onClick={handleSignOut}>
+          <button type="button" className="nav-item" onClick={handleSignOut}>
             <SignOut aria-hidden size={22} />
             <span>Sign out</span>
           </button>
         </div>
         <button
+          type="button"
           className="sidebar__toggle"
           onClick={() => setCollapsed((value) => !value)}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          {collapsed ? <CaretRight /> : <CaretLeft />}
+          {collapsed ? (
+            <CaretRight aria-hidden />
+          ) : (
+            <CaretLeft aria-hidden />
+          )}
         </button>
       </aside>
 
-      <main id="main-content" className="main-content" tabIndex={-1}>
+      <main
+        ref={mainContentRef}
+        id="main-content"
+        className="main-content"
+        tabIndex={-1}
+      >
         <Outlet />
       </main>
 
