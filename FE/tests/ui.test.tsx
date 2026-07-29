@@ -1,12 +1,15 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import {
+  ComboboxField,
+  SelectField,
+} from "../src/components/form-controls";
 import {
   Button,
   ConfirmDialog,
   EmptyState,
   Input,
-  SelectField,
   StatusMessage,
 } from "../src/components/ui";
 
@@ -36,14 +39,73 @@ describe("UI primitives", () => {
 
   it("connects select errors to their control", () => {
     render(
-      <SelectField label="Part of speech" error="Choose a value.">
-        <option value="">Choose</option>
-      </SelectField>,
+      <SelectField
+        label="Part of speech"
+        value=""
+        onValueChange={() => undefined}
+        options={[{ value: "", label: "Choose" }]}
+        error="Choose a value."
+      />,
     );
 
-    const select = screen.getByLabelText("Part of speech");
+    const select = screen.getByRole("combobox", {
+      name: "Part of speech",
+    });
     expect(select).toHaveAttribute("aria-invalid", "true");
     expect(select).toHaveAccessibleDescription("Choose a value.");
+  });
+
+  it("lets users choose a select option", async () => {
+    const user = userEvent.setup();
+    const onValueChange = vi.fn();
+    render(
+      <SelectField
+        label="Part of speech"
+        value="noun"
+        onValueChange={onValueChange}
+        options={[
+          { value: "noun", label: "Noun" },
+          { value: "verb", label: "Verb" },
+        ]}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("combobox", { name: "Part of speech" }),
+    );
+    await user.click(screen.getByRole("option", { name: "Verb" }));
+
+    expect(onValueChange).toHaveBeenCalledWith("verb");
+  });
+
+  it("lets users search and choose a combobox option", async () => {
+    const user = userEvent.setup();
+    const onValueChange = vi.fn();
+    render(
+      <ComboboxField
+        label="Linked collocation"
+        value=""
+        onValueChange={onValueChange}
+        options={[
+          { value: "", label: "None" },
+          { value: "1", label: "deploy an application" },
+          { value: "2", label: "deploy to production" },
+        ]}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("combobox", { name: "Linked collocation" }),
+    );
+    await user.type(
+      screen.getByPlaceholderText("Search..."),
+      "production",
+    );
+    await user.click(
+      screen.getByRole("option", { name: "deploy to production" }),
+    );
+
+    expect(onValueChange).toHaveBeenCalledWith("2");
   });
 
   it("disables a button while loading", () => {
