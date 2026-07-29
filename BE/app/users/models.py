@@ -24,7 +24,7 @@ class User(SQLModel, table=True):
             values_callable=lambda enum_class: [member.value for member in enum_class],
         ),
     )
-    hashed_password: str = Field(nullable=False, max_length=255)
+    hashed_password: str | None = Field(default=None, max_length=255)
     is_deleted: bool = Field(default=False, nullable=False)
     reset_token: str | None = Field(default=None, max_length=255)
     reset_token_expire: datetime | None = Field(
