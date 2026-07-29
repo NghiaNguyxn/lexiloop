@@ -10,7 +10,7 @@ import {
   Trash,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import {
   Link,
@@ -53,20 +53,21 @@ export function DecksPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const scope = searchParams.get("scope") === "public" ? "public" : "owned";
   const query = searchParams.get("q") ?? "";
+  const deferredQuery = useDeferredValue(query);
   const { data, isLoading, error } = useQuery({
     queryKey: ["decks", scope],
     queryFn: scope === "owned" ? deckApi.owned : deckApi.public,
   });
 
   const visibleDecks = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase();
+    const normalized = deferredQuery.trim().toLocaleLowerCase();
     if (!normalized) return data ?? [];
     return (data ?? []).filter((deck) =>
       `${deck.name} ${deck.description ?? ""}`
         .toLocaleLowerCase()
         .includes(normalized),
     );
-  }, [data, query]);
+  }, [data, deferredQuery]);
 
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(searchParams);
@@ -98,13 +99,17 @@ export function DecksPage() {
       <div className="toolbar">
         <div className="segmented-control" aria-label="Deck scope">
           <button
+            type="button"
             className={scope === "owned" ? "is-active" : ""}
+            aria-pressed={scope === "owned"}
             onClick={() => setParam("scope", "owned")}
           >
             My decks
           </button>
           <button
+            type="button"
             className={scope === "public" ? "is-active" : ""}
+            aria-pressed={scope === "public"}
             onClick={() => setParam("scope", "public")}
           >
             Public decks
@@ -114,9 +119,11 @@ export function DecksPage() {
           <span className="sr-only">Search decks</span>
           <MagnifyingGlass aria-hidden />
           <input
+            type="search"
             value={query}
             onChange={(event) => setParam("q", event.target.value)}
             placeholder="Search by name or description"
+            autoComplete="off"
           />
         </label>
       </div>
@@ -306,6 +313,7 @@ export function DeckDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const deckQuery = useQuery({
     queryKey: ["deck", id],
     queryFn: () => deckApi.detail(id),
@@ -341,7 +349,9 @@ export function DeckDetailPage() {
 
   const deck = deckQuery.data;
   const vocabularies = (vocabularyQuery.data ?? []).filter((vocabulary) =>
-    vocabulary.word.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
+    vocabulary.word
+      .toLocaleLowerCase()
+      .includes(deferredSearch.toLocaleLowerCase()),
   );
 
   return (
@@ -397,9 +407,11 @@ export function DeckDetailPage() {
             <span className="sr-only">Search vocabulary</span>
             <MagnifyingGlass aria-hidden />
             <input
+              type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search this deck"
+              autoComplete="off"
             />
           </label>
         </div>
