@@ -11,9 +11,19 @@ import {
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { useFieldArray, useForm } from "react-hook-form";
+import {
+  Controller,
+  useFieldArray,
+  useForm,
+  type Control,
+} from "react-hook-form";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { z } from "zod";
+import {
+  ComboboxField,
+  SelectField,
+  type SelectOption,
+} from "../../components/form-controls";
 import {
   Button,
   ButtonLink,
@@ -21,7 +31,6 @@ import {
   Input,
   PageHeader,
   PageLoader,
-  SelectField,
   StatusMessage,
   Textarea,
 } from "../../components/ui";
@@ -55,6 +64,16 @@ const partOfSpeechValues: PartOfSpeech[] = [
 ];
 
 const cefrValues: CefrLevel[] = ["A1", "A2", "B1", "B2", "C1", "C2"];
+
+const partOfSpeechOptions: SelectOption[] = partOfSpeechValues.map((value) => ({
+  value,
+  label: value.charAt(0).toUpperCase() + value.slice(1),
+}));
+
+const cefrOptions: SelectOption[] = [
+  { value: "", label: "Not specified" },
+  ...cefrValues.map((value) => ({ value, label: value })),
+];
 
 const itemSchema = z.object({
   part_of_speech: z.enum(partOfSpeechValues),
@@ -113,12 +132,14 @@ function cleanItem(values: ItemFormValues): VocabularyItemInput {
 
 function MeaningFields({
   index,
+  control,
   register,
   errors,
   canRemove,
   onRemove,
 }: {
   index: number;
+  control: Control<VocabularyFormValues>;
   register: ReturnType<typeof useForm<VocabularyFormValues>>["register"];
   errors: ReturnType<typeof useForm<VocabularyFormValues>>["formState"]["errors"];
   canRemove: boolean;
@@ -144,17 +165,22 @@ function MeaningFields({
         ) : null}
       </div>
       <div className="form-grid form-grid--three">
-        <SelectField
-          label="Part of speech"
-          error={itemErrors?.part_of_speech?.message}
-          {...register(`items.${index}.part_of_speech`)}
-        >
-          {partOfSpeechValues.map((value) => (
-            <option value={value} key={value}>
-              {value.charAt(0).toUpperCase() + value.slice(1)}
-            </option>
-          ))}
-        </SelectField>
+        <Controller
+          control={control}
+          name={`items.${index}.part_of_speech`}
+          render={({ field, fieldState }) => (
+            <SelectField
+              ref={field.ref}
+              name={field.name}
+              label="Part of speech"
+              value={field.value}
+              onValueChange={field.onChange}
+              onBlur={field.onBlur}
+              options={partOfSpeechOptions}
+              error={fieldState.error?.message}
+            />
+          )}
+        />
         <Input
           label="IPA"
           optional
@@ -162,18 +188,22 @@ function MeaningFields({
           error={itemErrors?.ipa?.message}
           {...register(`items.${index}.ipa`)}
         />
-        <SelectField
-          label="CEFR level"
-          error={itemErrors?.level?.message}
-          {...register(`items.${index}.level`)}
-        >
-          <option value="">Not specified</option>
-          {cefrValues.map((value) => (
-            <option value={value} key={value}>
-              {value}
-            </option>
-          ))}
-        </SelectField>
+        <Controller
+          control={control}
+          name={`items.${index}.level`}
+          render={({ field, fieldState }) => (
+            <SelectField
+              ref={field.ref}
+              name={field.name}
+              label="CEFR level"
+              value={field.value ?? ""}
+              onValueChange={field.onChange}
+              onBlur={field.onBlur}
+              options={cefrOptions}
+              error={fieldState.error?.message}
+            />
+          )}
+        />
       </div>
       <div className="form-grid form-grid--two">
         <Textarea
@@ -282,6 +312,7 @@ export function VocabularyCreatePage() {
           <MeaningFields
             key={field.id}
             index={index}
+            control={form.control}
             register={form.register}
             errors={form.formState.errors}
             canRemove={fields.length > 1}
@@ -371,16 +402,39 @@ function AddMeaningForm({
       </div>
       {serverError ? <StatusMessage tone="error">{serverError}</StatusMessage> : null}
       <div className="form-grid form-grid--three">
-        <SelectField label="Part of speech" {...form.register("part_of_speech")}>
-          {partOfSpeechValues.map((value) => (
-            <option key={value} value={value}>{value}</option>
-          ))}
-        </SelectField>
+        <Controller
+          control={form.control}
+          name="part_of_speech"
+          render={({ field, fieldState }) => (
+            <SelectField
+              ref={field.ref}
+              name={field.name}
+              label="Part of speech"
+              value={field.value}
+              onValueChange={field.onChange}
+              onBlur={field.onBlur}
+              options={partOfSpeechOptions}
+              error={fieldState.error?.message}
+            />
+          )}
+        />
         <Input label="IPA" optional {...form.register("ipa")} />
-        <SelectField label="CEFR level" {...form.register("level")}>
-          <option value="">Not specified</option>
-          {cefrValues.map((value) => <option key={value}>{value}</option>)}
-        </SelectField>
+        <Controller
+          control={form.control}
+          name="level"
+          render={({ field, fieldState }) => (
+            <SelectField
+              ref={field.ref}
+              name={field.name}
+              label="CEFR level"
+              value={field.value ?? ""}
+              onValueChange={field.onChange}
+              onBlur={field.onBlur}
+              options={cefrOptions}
+              error={fieldState.error?.message}
+            />
+          )}
+        />
       </div>
       <div className="form-grid form-grid--two">
         <Textarea label="English definition" error={form.formState.errors.english_meaning?.message} {...form.register("english_meaning")} />
@@ -510,14 +564,32 @@ function ContentComposer({
         {...form.register("vietnamese")}
       />
       {type === "example" && item.collocations.length ? (
-        <SelectField label="Linked collocation" {...form.register("collocationId")}>
-          <option value="">None</option>
-          {item.collocations.map((collocation) => (
-            <option value={collocation.id} key={collocation.id}>
-              {collocation.phrase}
-            </option>
-          ))}
-        </SelectField>
+        <Controller
+          control={form.control}
+          name="collocationId"
+          render={({ field, fieldState }) => (
+            <ComboboxField
+              ref={field.ref}
+              name={field.name}
+              label="Linked collocation"
+              optional
+              value={field.value ?? ""}
+              onValueChange={field.onChange}
+              onBlur={field.onBlur}
+              options={[
+                { value: "", label: "None" },
+                ...item.collocations.map((collocation) => ({
+                  value: String(collocation.id),
+                  label: collocation.phrase,
+                })),
+              ]}
+              placeholder="Select a collocation"
+              searchPlaceholder="Search collocations..."
+              emptyMessage="No matching collocations."
+              error={fieldState.error?.message}
+            />
+          )}
+        />
       ) : null}
       <Textarea label="Note" optional rows={2} {...form.register("note")} />
       <div className="form-actions">
