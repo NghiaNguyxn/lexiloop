@@ -1597,6 +1597,8 @@ h3 {
 .note-grid p {
   margin: 3px 0 0;
   font-size: 0.85rem;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
 }
 
 .content-section {

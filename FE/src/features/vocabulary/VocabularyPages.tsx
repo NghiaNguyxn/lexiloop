@@ -69,7 +69,11 @@ const itemSchema = z.object({
     .trim()
     .min(1, "Add a Vietnamese meaning.")
     .max(500),
-  grammar_note: z.string().trim().max(1000).optional(),
+  grammar_note: z
+    .string()
+    .trim()
+    .max(2000, "Use no more than 2,000 characters.")
+    .optional(),
   note: z.string().trim().max(2000).optional(),
   topic: z.string().trim().max(100).optional(),
   level: z.enum(cefrValues).or(z.literal("")).optional(),
@@ -195,10 +199,14 @@ function MeaningFields({
           error={itemErrors?.topic?.message}
           {...register(`items.${index}.topic`)}
         />
-        <Input
+        <Textarea
           label="Grammar pattern"
           optional
-          placeholder="deploy + object"
+          rows={3}
+          placeholder={
+            "be interested in + noun\nbe interested in + V-ing"
+          }
+          hint="Enter one pattern per line."
           error={itemErrors?.grammar_note?.message}
           {...register(`items.${index}.grammar_note`)}
         />
@@ -379,7 +387,17 @@ function AddMeaningForm({
         <Textarea label="Vietnamese meaning" error={form.formState.errors.vietnamese_meaning?.message} {...form.register("vietnamese_meaning")} />
       </div>
       <Input label="Topic" optional {...form.register("topic")} />
-      <Input label="Grammar pattern" optional {...form.register("grammar_note")} />
+      <Textarea
+        label="Grammar pattern"
+        optional
+        rows={3}
+        placeholder={
+          "be interested in + noun\nbe interested in + V-ing"
+        }
+        hint="Enter one pattern per line."
+        error={form.formState.errors.grammar_note?.message}
+        {...form.register("grammar_note")}
+      />
       <Textarea label="Additional note" optional {...form.register("note")} />
       <div className="form-actions">
         <Button type="button" variant="secondary" onClick={onDone}>Cancel</Button>
