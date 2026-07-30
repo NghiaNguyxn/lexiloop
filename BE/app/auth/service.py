@@ -1,5 +1,6 @@
 import logging
 import secrets
+import re
 from fastapi import Request
 from sqlmodel import Session, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -9,6 +10,7 @@ from app.auth.jwt import create_access_token, create_refresh_token, get_refresh_
 from app.auth.models import RefreshToken, UserIdentity
 from app.auth.refresh_token_service import revoke_all_refresh_tokens_for_user,revoke_refresh_token
 from app.auth.enums import IdentityProvider
+from app.auth.google_verifier import verify_google_credential
 from app.auth.exceptions import (
     ExpiredRefreshTokenError,
     InvalidCredentialsError,
@@ -18,6 +20,8 @@ from app.auth.exceptions import (
     PasswordSameAsOldError,
     RefreshTokenReuseError,
     PasswordNotConfiguredError,
+    AccountUnavailableError,
+    GoogleLinkRequiredError,
 )
 from app.auth.schemas import (
     AuthMethodsResponse,
@@ -28,9 +32,13 @@ from app.common.time import utc_now
 from app.common.exception import InternalServerError
 from app.users.exceptions import UserAlreadyExistsError, UserNotFoundError
 from app.users.schemas import UserCreate
+from app.users.enums import Role
 from app.users.service import (
     get_active_user_by_id,
     get_active_user_by_username_or_email,
+    get_user_by_email,
+    get_user_by_username,
+    get_user_by_id,
 )
 from app.users.models import User
 
@@ -38,6 +46,11 @@ logger = logging.getLogger(__name__)
 
 
 _GOOGLE_NONCE_BYTES = 32  # Number of bytes for the Google nonce
+_GOOGLE_USERNAME_MAX_LENGTH = 50  # Maximum length for a Google username
+_GOOGLE_USERNAME_MAX_ATTEMPTS = 10  # Maximum attempts to generate a unique Google username
+_GOOGLE_USERNAME_SUFFIX_BYTES = 3 # Number of bytes for the random suffix in Google username generation
+_INVALID_GOOGLE_USERNAME_CHARS = re.compile(r"[^a-zA-Z0-9_.-]")  # Regex to match invalid characters in Google usernames
+
 
 def register_user(session: Session, user_create: UserCreate) -> User:
     """Register a new user."""
@@ -142,6 +155,115 @@ def login_user(session: Session, username_or_email: str, password: str, user_age
         raise InternalServerError("An error occurred while creating the auth session.") from e
 
     return access_token, raw_refresh_token
+
+
+def login_with_google(
+    session: Session,
+    credential: str,
+    nonce: str,
+    user_agent: str,
+    ip_address: str
+) -> tuple[str, str]:
+    """Authenticate with Google and issue a LexiLoop session."""
+
+    identity_data: GoogleIdentityData = verify_google_credential(
+        credential=credential,
+        expected_nonce=nonce
+    )
+
+    try:
+        identity: UserIdentity | None = get_identity_by_provider_subject(
+            session=session,
+            provider=IdentityProvider.GOOGLE,
+            provider_subject=identity_data.subject
+        )
+
+        if identity is not None:
+            user = get_user_by_id(
+                session=session,
+                user_id=identity.user_id
+            )
+
+            if user is None or user.is_deleted:
+                logger.warning(f"Google login failed: User with ID {identity.user_id} not found or is deleted.")
+                raise AccountUnavailableError()
+
+            touch_google_identity(
+                session=session,
+                identity=identity,
+                identity_data=identity_data,
+            )
+
+        else:
+            email = str(identity_data.email).lower()
+
+            existing_user = get_user_by_email(
+                session,
+                email,
+            )
+
+            if existing_user is not None:
+                if existing_user.is_deleted:
+                    logger.warning(f"Google login failed: account is unavailable.")
+                    raise AccountUnavailableError()
+
+                raise GoogleLinkRequiredError()
+
+            username = generate_unique_google_username(
+                session=session,
+                email=email,
+            )
+
+            full_name = None
+            if identity_data.full_name:
+                full_name = " ".join(identity_data.full_name.strip().split())[:100]
+
+            avatar_url = None
+            if identity_data.avatar_url:
+                candidate_avatar_url = str(identity_data.avatar_url).strip()
+
+                if len(candidate_avatar_url) <= 2048:
+                    avatar_url = candidate_avatar_url
+
+            user = User(
+                username=username,
+                email=email,
+                full_name=full_name,
+                avatar_url=avatar_url,
+                hashed_password=None,
+                role=Role.USER,
+            )
+
+            session.add(user)
+            session.flush()
+
+            user_id = user.id
+
+            if user_id is None:
+                logger.error("Unable to create the Google user. User ID is None after flush.")
+                raise InternalServerError(message="Unable to create the Google user.")
+
+            create_google_identity(
+                session=session,
+                user_id=user_id,
+                identity_data=identity_data
+            )
+
+        access_token, raw_refresh_token = issue_auth_session(
+            session=session,
+            user=user,
+            user_agent=user_agent,
+            ip_address=ip_address
+        )
+
+        session.commit()
+
+        return access_token, raw_refresh_token
+
+    except SQLAlchemyError as e:
+        logger.exception("Database error during Google sign-in.")
+        session.rollback()
+        raise InternalServerError("An error occurred during the Google login process.") from e
 
 
 def rotate_refresh_token(session: Session, raw_refresh_token: str, user_agent: str, ip_address: str) -> tuple[str, str]:
@@ -372,3 +494,37 @@ def get_auth_methods(
         password=user.hashed_password is not None,
         google=google_identity is not None
     )
+
+
+def generate_unique_google_username(
+    session: Session,
+    email: str,
+) -> str:
+    """Generate a unique username based on the Google email address."""
+
+    local_part = email.partition("@")[0].strip().lower()
+
+    base = _INVALID_GOOGLE_USERNAME_CHARS.sub("", local_part).strip("_.-")
+
+    if not base:
+        base = "user"
+
+    if len(base) < 3:
+        base = f"{base}-user"
+
+    base = base[:_GOOGLE_USERNAME_MAX_LENGTH].rstrip("_.-")
+
+    if get_user_by_username(session, base) is None:
+        return base
+
+    for _ in range(_GOOGLE_USERNAME_MAX_ATTEMPTS):
+        suffix = secrets.token_hex(_GOOGLE_USERNAME_SUFFIX_BYTES)
+        max_prefix_length = (_GOOGLE_USERNAME_MAX_LENGTH - len(suffix) - 1)
+
+        prefix = base[:max_prefix_length].rstrip("_.-")
+        candidate = f"{prefix}-{suffix}"
+
+        if get_user_by_username(session, candidate) is None:
+            return candidate
+
+    raise InternalServerError("Unable to generate a unique username after multiple attempts.")
