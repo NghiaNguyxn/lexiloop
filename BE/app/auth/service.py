@@ -6,8 +6,9 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.auth.security import hash_password, verify_password
 from app.auth.jwt import create_access_token, create_refresh_token, get_refresh_token_expiration, hash_refresh_token
-from app.auth.models import RefreshToken
+from app.auth.models import RefreshToken, UserIdentity
 from app.auth.refresh_token_service import revoke_all_refresh_tokens_for_user,revoke_refresh_token
+from app.auth.enums import IdentityProvider
 from app.auth.exceptions import (
     ExpiredRefreshTokenError,
     InvalidCredentialsError,
@@ -18,12 +19,19 @@ from app.auth.exceptions import (
     RefreshTokenReuseError,
     PasswordNotConfiguredError,
 )
-from app.auth.schemas import ChangePasswordRequest
+from app.auth.schemas import (
+    AuthMethodsResponse,
+    ChangePasswordRequest,
+    GoogleIdentityData,
+)
 from app.common.time import utc_now
 from app.common.exception import InternalServerError
 from app.users.exceptions import UserAlreadyExistsError, UserNotFoundError
 from app.users.schemas import UserCreate
-from app.users.service import get_active_user_by_id, get_active_user_by_username_or_email
+from app.users.service import (
+    get_active_user_by_id,
+    get_active_user_by_username_or_email,
+)
 from app.users.models import User
 
 logger = logging.getLogger(__name__)
@@ -277,3 +285,90 @@ def generate_google_nonce() -> str:
     """Generate a secure random nonce for Google OAuth2 authentication."""
 
     return secrets.token_urlsafe(_GOOGLE_NONCE_BYTES)
+
+
+def get_identity_by_provider_subject(
+    session: Session,
+    provider: IdentityProvider,
+    provider_subject: str
+) -> UserIdentity | None:
+    """Retrieve an external identity by provider and provider subject."""
+
+    statement = select(UserIdentity).where(
+        UserIdentity.provider == provider,
+        UserIdentity.provider_subject == provider_subject
+    )
+
+    return session.exec(statement).first()
+
+
+def get_identity_by_user_and_provider(
+    session: Session,
+    user_id: int,
+    provider: IdentityProvider
+) -> UserIdentity | None:
+    """Retrieve a provider identity linked to a LexiLoop user."""
+
+    statement = select(UserIdentity).where(
+        UserIdentity.user_id == user_id,
+        UserIdentity.provider == provider
+    )
+
+    return session.exec(statement).first()
+
+
+def create_google_identity(
+    session: Session,
+    user_id: int,
+    identity_data: GoogleIdentityData
+) -> UserIdentity:
+    """Create a Google identity without committing the transaction."""
+
+    identity = UserIdentity(
+        user_id=user_id,
+        provider=IdentityProvider.GOOGLE,
+        provider_subject=identity_data.subject,
+        provider_email=str(identity_data.email),
+        last_used_at=utc_now()
+    )
+
+    session.add(identity)
+
+    return identity
+
+
+def touch_google_identity(
+    session: Session,
+    identity: UserIdentity,
+    identity_data: GoogleIdentityData
+) -> None:
+    """Update Google identity metadata after successful verification."""
+
+    identity.provider_email = str(identity_data.email)
+    identity.last_used_at = utc_now()
+
+    session.add(identity)
+
+
+def get_auth_methods(
+    session: Session,
+    user: User
+) -> AuthMethodsResponse:
+    """Retrieve the authentication methods available for a user."""
+
+    user_id = user.id
+
+    if user_id is None:
+        logger.error("User ID is None. Cannot retrieve auth methods.")
+        raise InternalServerError(message="Cannot retrieve auth methods for an unpersisted user.")
+
+    google_identity = get_identity_by_user_and_provider(
+        session=session,
+        user_id=user_id,
+        provider=IdentityProvider.GOOGLE
+    )
+
+    return AuthMethodsResponse(
+        password=user.hashed_password is not None,
+        google=google_identity is not None
+    )
