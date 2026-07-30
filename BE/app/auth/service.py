@@ -22,6 +22,9 @@ from app.auth.exceptions import (
     PasswordNotConfiguredError,
     AccountUnavailableError,
     GoogleLinkRequiredError,
+    GoogleAlreadyLinkedError,
+    GoogleIdentityAlreadyLinkedError,
+    GoogleUnlinkNotAllowedError,
 )
 from app.auth.schemas import (
     AuthMethodsResponse,
@@ -528,3 +531,101 @@ def generate_unique_google_username(
             return candidate
 
     raise InternalServerError("Unable to generate a unique username after multiple attempts.")
+
+
+def link_google_identity(
+    session: Session,
+    user: User,
+    credential: str,
+    nonce: str
+) -> None:
+    """Link a verified Google identity to an existing user."""
+
+    user_id = user.id
+
+    if user_id is None:
+        logger.error("User ID is None. Cannot link Google identity.")
+        raise InternalServerError(message="Cannot link Google identity to an unpersisted user.")
+
+    identity_data: GoogleIdentityData = verify_google_credential(
+        credential=credential,
+        expected_nonce=nonce
+    )
+
+    try:
+        identity = get_identity_by_provider_subject(
+            session=session,
+            provider=IdentityProvider.GOOGLE,
+            provider_subject=identity_data.subject
+        )
+
+        if identity is not None:
+            if identity.user_id != user_id:
+                logger.warning(f"Google identity linking failed: Identity already linked to another user (ID: {identity.user_id}).")
+                raise GoogleIdentityAlreadyLinkedError()
+
+            touch_google_identity(
+                session=session,
+                identity=identity,
+                identity_data=identity_data
+            )
+
+            session.commit()
+            return
+
+        current_google_identity = get_identity_by_user_and_provider(
+            session=session,
+            user_id=user_id,
+            provider=IdentityProvider.GOOGLE
+        )
+
+        if current_google_identity is not None:
+            logger.warning(f"Google identity linking failed: User {user_id} already has a linked Google identity.")
+            raise GoogleAlreadyLinkedError()
+
+        create_google_identity(
+            session=session,
+            user_id=user_id,
+            identity_data=identity_data
+        )
+
+        session.commit()
+
+    except SQLAlchemyError as e:
+        logger.exception("Database error during Google identity linking.")
+        session.rollback()
+        raise InternalServerError("An error occurred while linking the Google identity.") from e
+
+
+def unlink_google_identity(
+    session: Session,
+    user: User
+) -> None:
+    """Remove Google as a sign-in method."""
+
+    user_id = user.id
+
+    if user_id is None:
+        logger.error("User ID is None. Cannot unlink Google identity.")
+        raise InternalServerError(message="Cannot unlink Google identity from an unpersisted user.")
+
+    if user.hashed_password is None:
+        raise GoogleUnlinkNotAllowedError()
+
+    try:
+        identity = get_identity_by_user_and_provider(
+                session=session,
+                user_id=user_id,
+                provider=IdentityProvider.GOOGLE
+            )
+
+        if identity is None:
+            return
+
+        session.delete(identity)
+        session.commit()
+
+    except SQLAlchemyError as e:
+        logger.exception("Database error during Google identity unlinking.")
+        session.rollback()
+        raise InternalServerError("An error occurred while unlinking the Google identity.") from e
