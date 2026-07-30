@@ -1,4 +1,5 @@
 import logging
+import secrets
 from fastapi import Request
 from sqlmodel import Session, select
 from sqlalchemy.exc import IntegrityError
@@ -18,6 +19,8 @@ from app.users.models import User
 
 logger = logging.getLogger(__name__)
 
+
+_GOOGLE_NONCE_BYTES = 32  # Number of bytes for the Google nonce
 
 def register_user(session: Session, user_create: UserCreate) -> User:
     """Register a new user."""
@@ -219,3 +222,9 @@ def get_client_ip(request: Request) -> str:
 def get_user_agent(request: Request) -> str:
     """Extract the User-Agent from the request headers."""
     return request.headers.get("User-Agent", "Unknown")
+
+
+def generate_google_nonce() -> str:
+    """Generate a secure random nonce for Google OAuth2 authentication."""
+
+    return secrets.token_urlsafe(_GOOGLE_NONCE_BYTES)

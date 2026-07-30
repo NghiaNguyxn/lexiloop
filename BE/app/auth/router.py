@@ -6,7 +6,11 @@ from app.auth.exceptions import MissingRefreshTokenError
 from app.database.databases import SessionDep
 from app.common.responses import BaseResponse, create_success_response
 from app.users.schemas import UserCreate, UserResponse
-from app.auth.schemas import ChangePasswordRequest, Token
+from app.auth.schemas import (
+    ChangePasswordRequest,
+    GoogleNonceResponse,
+    Token,
+)
 from app.auth import service as auth_service
 from app.core.config import settings
 from app.auth.jwt import get_refresh_cookie_max_age
@@ -147,8 +151,31 @@ def change_password(
     )
 
 
+@router.get(
+    "/google/nonce",
+    status_code=status.HTTP_200_OK,
+    summary="Generate a nonce for Google authentication",
+)
+def generate_google_nonce(response: Response) -> BaseResponse[GoogleNonceResponse]:
+    nonce = auth_service.generate_google_nonce()
+
+    set_google_nonce_cookie(
+        response=response,
+        nonce=nonce
+    )
+
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+
+    return create_success_response(
+        code=status.HTTP_200_OK,
+        message="Google nonce generated successfully.",
+        result=GoogleNonceResponse(nonce=nonce)
+    )
+
+
 def set_refresh_token_cookie(response: Response, refresh_token: str) -> None:
     """Set the refresh token in an HTTP-only cookie."""
+
     response.set_cookie(
         key=settings.REFRESH_COOKIE_NAME,
         value=refresh_token,
@@ -157,4 +184,18 @@ def set_refresh_token_cookie(response: Response, refresh_token: str) -> None:
         samesite=settings.REFRESH_COOKIE_SAMESITE,
         max_age=get_refresh_cookie_max_age(),
         path="/auth",
+    )
+
+
+def set_google_nonce_cookie(response: Response, nonce: str) -> None:
+    """Set the Google nonce in an HTTP-only cookie."""
+
+    response.set_cookie(
+        key=settings.GOOGLE_NONCE_COOKIE_NAME,
+        value=nonce,
+        httponly=True,
+        secure=settings.REFRESH_COOKIE_SECURE,
+        samesite=settings.REFRESH_COOKIE_SAMESITE,
+        max_age=settings.GOOGLE_NONCE_EXPIRE_SECONDS,
+        path="/auth/google",
     )
