@@ -2,13 +2,22 @@ import logging
 import secrets
 from fastapi import Request
 from sqlmodel import Session, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.auth.security import hash_password, verify_password
 from app.auth.jwt import create_access_token, create_refresh_token, get_refresh_token_expiration, hash_refresh_token
 from app.auth.models import RefreshToken
 from app.auth.refresh_token_service import revoke_all_refresh_tokens_for_user,revoke_refresh_token
-from app.auth.exceptions import ExpiredRefreshTokenError, InvalidCredentialsError, InvalidCurrentPasswordError, InvalidRefreshTokenError, MissingRefreshTokenError, PasswordSameAsOldError, RefreshTokenReuseError
+from app.auth.exceptions import (
+    ExpiredRefreshTokenError,
+    InvalidCredentialsError,
+    InvalidCurrentPasswordError,
+    InvalidRefreshTokenError,
+    MissingRefreshTokenError,
+    PasswordSameAsOldError,
+    RefreshTokenReuseError,
+    PasswordNotConfiguredError,
+)
 from app.auth.schemas import ChangePasswordRequest
 from app.common.time import utc_now
 from app.common.exception import InternalServerError
@@ -51,9 +60,11 @@ def authenticate_user(session: Session, username_or_email: str, password: str) -
 
     logger.info(f"Attempting to log in user with username or email: {username_or_email}")
 
-    user = get_active_user_by_username_or_email(session, username_or_email.strip().lower())
-    if user is None:
-        logger.warning(f"Login failed: User with username or email {username_or_email} not found.")
+    normalized_identifier = username_or_email.strip().lower()
+
+    user = get_active_user_by_username_or_email(session, normalized_identifier)
+    if user is None or user.hashed_password is None:
+        logger.warning("Password authentication failed.")
         raise InvalidCredentialsError()
 
     if not verify_password(password, user.hashed_password):
@@ -63,22 +74,29 @@ def authenticate_user(session: Session, username_or_email: str, password: str) -
     return user
 
 
-def login_user(session: Session, username_or_email: str, password: str, user_agent: str, ip_address: str) -> tuple[str, str]:
-    """Authenticate the user and return access and refresh tokens."""
+def issue_auth_session(
+    session: Session,
+    user: User,
+    user_agent: str,
+    ip_address: str
+) -> tuple[str, str]:
+    """
+    Create a LexiLoop access token and refresh token for the authenticated user.
 
-    user = authenticate_user(session, username_or_email, password)
-    if user is None:
-        logger.warning(f"Login failed: Authentication failed for user {username_or_email}.")
-        raise InvalidCredentialsError()
+    This function intentionally does not commit the transaction.
+    """
 
-    # Generate tokens
-    access_token = create_access_token(user_id=user.id)
+    user_id = user.id
+
+    if user_id is None:
+        logger.error("User ID is None. Cannot issue auth session.")
+        raise InternalServerError(message="Cannot issue a session for an unpersisted user.")
+
+    access_token = create_access_token(user_id=user_id)
     raw_refresh_token = create_refresh_token()
 
-    logger.info(f"User {username_or_email} logged in successfully from IP {ip_address} with User-Agent {user_agent}.")
-
     refresh_token_record = RefreshToken(
-        user_id=user.id,
+        user_id=user_id,
         token_hash=hash_refresh_token(raw_refresh_token),
         expires_at=get_refresh_token_expiration(),
         user_agent=user_agent,
@@ -86,7 +104,34 @@ def login_user(session: Session, username_or_email: str, password: str, user_age
     )
 
     session.add(refresh_token_record)
-    session.commit()
+
+    return access_token, raw_refresh_token
+
+
+def login_user(session: Session, username_or_email: str, password: str, user_agent: str, ip_address: str) -> tuple[str, str]:
+    """Authenticate the user and return access and refresh tokens."""
+
+    user = authenticate_user(
+        session=session,
+        username_or_email=username_or_email,
+        password=password
+    )
+
+    access_token, raw_refresh_token = issue_auth_session(
+        session=session,
+        user=user,
+        user_agent=user_agent,
+        ip_address=ip_address
+    )
+
+    logger.info(f"User {username_or_email} logged in successfully from IP {ip_address} with User-Agent {user_agent}.")
+
+    try:
+        session.commit()
+    except SQLAlchemyError as e:
+        logger.error(f"Error committing auth session to the database for user {username_or_email}: {e}")
+        session.rollback()
+        raise InternalServerError("An error occurred while creating the auth session.") from e
 
     return access_token, raw_refresh_token
 
@@ -182,6 +227,10 @@ def change_password(session: Session, user_id: int, request: ChangePasswordReque
     if not user:
         logger.error(f"Password update failed: User with ID {user_id} not found.")
         raise UserNotFoundError()
+
+    if user.hashed_password is None:
+        logger.error(f"Password update failed: User with ID {user_id} does not have a password set.")
+        raise PasswordNotConfiguredError()
 
     if not verify_password(request.current_password, user.hashed_password):
         logger.error(f"Password update failed: Incorrect current password for user {user_id}.")
