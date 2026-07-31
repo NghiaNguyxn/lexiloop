@@ -17,11 +17,20 @@ def get_user_by_id(session: Session, user_id: int) -> User | None:
 
     return session.get(User, user_id)
 
+
 def get_user_by_username(session: Session, username: str) -> User | None:
     """Retrieve a user by username, including soft-deleted users."""
 
     statement = select(User).where(User.username == username)
     return session.exec(statement).first()
+
+
+def get_user_by_email(session: Session, email: str) -> User | None:
+    """Retrieve a user by email, including soft-deleted users."""
+
+    statement = select(User).where(User.email == email)
+    return session.exec(statement).first()
+
 
 def get_active_user_by_id(session: Session, user_id: int) -> User | None:
     """Retrieve an active (not deleted) user by their ID."""
@@ -30,6 +39,7 @@ def get_active_user_by_id(session: Session, user_id: int) -> User | None:
     statement = select(User).where(User.id == user_id, User.is_deleted == False)
     return session.exec(statement).first()
 
+
 def get_active_user_by_username(session: Session, username: str) -> User | None:
     """Retrieve an active (not deleted) user by their username."""
 
@@ -37,12 +47,14 @@ def get_active_user_by_username(session: Session, username: str) -> User | None:
     statement = select(User).where(User.username == username, User.is_deleted == False)
     return session.exec(statement).first()
 
+
 def get_active_user_by_email(session: Session, email: str) -> User | None:
     """Retrieve an active (not deleted) user by their email."""
 
     logger.info(f"Fetching active user with email: {email}")
     statement = select(User).where(User.email == email, User.is_deleted == False)
     return session.exec(statement).first()
+
 
 def get_active_user_by_username_or_email(session: Session, username_or_email: str) -> User | None:
     """Retrieve an active (not deleted) user by their username or email."""
@@ -57,12 +69,14 @@ def get_active_user_by_username_or_email(session: Session, username_or_email: st
     )
     return session.exec(statement).first()
 
+
 def get_active_user_by_phone(session: Session, phone: str) -> User | None:
     """Retrieve an active (not deleted) user by their phone number."""
 
     logger.info(f"Fetching active user with phone: {phone}")
     statement = select(User).where(User.phone == phone, User.is_deleted == False)
     return session.exec(statement).first()
+
 
 def get_users(session: Session, is_deleted: bool | None = None, skip: int = 0, limit: int = 100) -> list[User]:
     """Retrieve a list of users with pagination."""
@@ -72,6 +86,7 @@ def get_users(session: Session, is_deleted: bool | None = None, skip: int = 0, l
     if is_deleted is not None:
         statement = statement.where(User.is_deleted == is_deleted)
     return session.exec(statement).all()
+
 
 def create_user(session: Session, user_create: UserCreate) -> User:
     """Create a new user in the database."""
@@ -107,6 +122,7 @@ def create_user(session: Session, user_create: UserCreate) -> User:
 
     session.refresh(user)
     return user
+
 
 def update_user_profile(session: Session, user_id: int, user_update: UserUpdate) -> User | None:
     """Update an existing user's information."""
@@ -147,6 +163,7 @@ def update_user_profile(session: Session, user_id: int, user_update: UserUpdate)
     session.refresh(user)
     return user
 
+
 def update_avatar(session: Session, user_id: int, avatar_url: str) -> User | None:
     """Update a user's avatar URL."""
 
@@ -168,6 +185,7 @@ def update_avatar(session: Session, user_id: int, avatar_url: str) -> User | Non
 
     session.refresh(user)
     return user
+
 
 def admin_update_user(session: Session, user_id: int, user_update: UserAdminUpdate) -> User | None:
     """Update a user's information as an administrator."""
@@ -197,6 +215,7 @@ def admin_update_user(session: Session, user_id: int, user_update: UserAdminUpda
     session.refresh(user)
     return user
 
+
 def delete_user(session: Session, user_id: int) -> bool:
     """Soft delete a user by marking them as deleted."""
 
@@ -219,6 +238,7 @@ def delete_user(session: Session, user_id: int) -> bool:
 
     session.refresh(user)
     return True
+
 
 def create_initial_data(session: Session):
     """Initialize the database with initial data if necessary."""

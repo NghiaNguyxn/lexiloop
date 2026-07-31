@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     REFRESH_COOKIE_SECURE: bool
     REFRESH_COOKIE_SAMESITE: str
 
+    # Google Sign-In
+    GOOGLE_CLIENT_ID: str
+    GOOGLE_NONCE_COOKIE_NAME: str = "google_oauth_nonce"
+    GOOGLE_NONCE_EXPIRE_SECONDS: int = 300
+
     # Cloudinary
     CLOUDINARY_CLOUD_NAME: str
     CLOUDINARY_API_KEY: str

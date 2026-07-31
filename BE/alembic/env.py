@@ -7,7 +7,7 @@ from sqlmodel import SQLModel
 from app.core.config import settings
 
 from app.users.models import User # noqa: F401
-from app.auth.models import RefreshToken # noqa: F401
+from app.auth.models import RefreshToken, UserIdentity # noqa: F401
 from app.decks.models import Deck # noqa: F401
 from app.vocabularies.models import Vocabulary, VocabularyItem # noqa: F401
 from app.vocabularies.content.models import Collocation, ExampleSentence # noqa: F401

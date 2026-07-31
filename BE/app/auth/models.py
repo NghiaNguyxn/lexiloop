@@ -1,5 +1,9 @@
 from datetime import datetime
+
 from sqlmodel import DateTime, SQLModel, Field, func, Index
+from sqlalchemy import String, UniqueConstraint
+
+from app.auth.enums import IdentityProvider
 
 class RefreshToken(SQLModel, table=True):
     __tablename__ = "refresh_tokens"
@@ -33,6 +37,47 @@ class RefreshToken(SQLModel, table=True):
             "server_default": func.now()
         }
     )
+    last_used_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),
+    )
+
+
+class UserIdentity(SQLModel, table=True):
+    __tablename__ = "user_identities"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "provider",
+            "provider_subject",
+            name="uq_user_identities_provider_subject"
+        ),
+        UniqueConstraint(
+            "user_id",
+            "provider",
+            name="uq_user_identities_user_provider",
+        ),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+
+    user_id: int = Field(foreign_key="users.id", nullable=False, ondelete="CASCADE")
+
+    provider: IdentityProvider = Field(nullable=False, sa_type=String(length=32))
+
+    provider_subject: str = Field(nullable=False, max_length=255)
+
+    provider_email: str = Field(nullable=False, max_length=254)
+
+    created_at: datetime | None = Field(
+        default=None,
+        nullable=False,
+        sa_type=DateTime(timezone=True),
+        sa_column_kwargs={
+            "server_default": func.now()
+        }
+    )
+
     last_used_at: datetime | None = Field(
         default=None,
         sa_type=DateTime(timezone=True),
