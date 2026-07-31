@@ -131,3 +131,14 @@ class PasswordNotConfiguredError(ConflictError):
 
     def __init__(self, message: str = "A password is not configured for this account.", error_code: Optional[str] = "PASSWORD_NOT_CONFIGURED"):
         super().__init__(message=message, error_code=error_code)
+
+
+class PasswordAlreadyConfiguredError(ConflictError):
+    """Exception raised when an initial password has already been configured."""
+
+    def __init__(
+        self,
+        message: str = "A password is already configured for this account.",
+        error_code: Optional[str] = "PASSWORD_ALREADY_CONFIGURED",
+    ):
+        super().__init__(message=message, error_code=error_code)

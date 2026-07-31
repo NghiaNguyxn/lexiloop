@@ -20,6 +20,7 @@ from app.auth.exceptions import (
     PasswordSameAsOldError,
     RefreshTokenReuseError,
     PasswordNotConfiguredError,
+    PasswordAlreadyConfiguredError,
     AccountUnavailableError,
     GoogleLinkRequiredError,
     GoogleAlreadyLinkedError,
@@ -30,6 +31,7 @@ from app.auth.schemas import (
     AuthMethodsResponse,
     ChangePasswordRequest,
     GoogleIdentityData,
+    SetPasswordRequest,
 )
 from app.common.time import utc_now
 from app.common.exception import InternalServerError
@@ -349,6 +351,65 @@ def logout_user(session: Session, raw_refresh_token: str | None = None) -> None:
         logger.error(f"Error committing refresh token revocation to the database: {e}")
         session.rollback()
         raise InternalServerError("An error occurred while logging out the user.") from e
+
+
+def set_password(
+    session: Session,
+    user_id: int,
+    request: SetPasswordRequest,
+) -> User:
+    """Set the initial password for an account that does not have one."""
+
+    logger.info("Setting the initial password for user ID %s.", user_id)
+
+    statement = (
+        select(User)
+        .where(
+            User.id == user_id,
+            User.is_deleted.is_(False),
+        )
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    user = session.exec(statement).first()
+
+    if user is None:
+        logger.warning(
+            "Initial password setup failed: user ID %s was not found.",
+            user_id,
+        )
+        raise UserNotFoundError()
+
+    if user.hashed_password is not None:
+        logger.warning(
+            "Initial password setup failed: user ID %s already has a password.",
+            user_id,
+        )
+        raise PasswordAlreadyConfiguredError()
+
+    user.hashed_password = hash_password(request.new_password)
+    session.add(user)
+
+    revoke_all_refresh_tokens_for_user(
+        session=session,
+        user_id=user_id,
+    )
+
+    try:
+        session.commit()
+    except SQLAlchemyError as error:
+        logger.exception(
+            "Database error while setting the initial password for user ID %s.",
+            user_id,
+        )
+        session.rollback()
+        raise InternalServerError(
+            "An error occurred while setting the password."
+        ) from error
+
+    session.refresh(user)
+
+    return user
 
 
 def change_password(session: Session, user_id: int, request: ChangePasswordRequest) -> User | None:

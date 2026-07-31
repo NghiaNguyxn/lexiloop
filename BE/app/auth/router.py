@@ -14,6 +14,7 @@ from app.auth.schemas import (
     ChangePasswordRequest,
     GoogleCredentialRequest,
     GoogleNonceResponse,
+    SetPasswordRequest,
     Token,
 )
 from app.auth import service as auth_service
@@ -143,18 +144,39 @@ def logout_user(
 
     auth_service.logout_user(session=session, raw_refresh_token=refresh_token)
 
-    response.delete_cookie(
-        key=settings.REFRESH_COOKIE_NAME,
-        httponly=True,
-        secure=settings.REFRESH_COOKIE_SECURE,
-        samesite=settings.REFRESH_COOKIE_SAMESITE,
-        path="/auth"
-    )
+    delete_refresh_token_cookie(response)
 
     return create_success_response(
         code=status.HTTP_200_OK,
         message="User logged out successfully.",
         result=None
+    )
+
+
+@router.post(
+    "/set-password",
+    status_code=status.HTTP_200_OK,
+    summary="Set the initial password for the current user",
+)
+def set_password(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    response: Response,
+    password_request: SetPasswordRequest,
+) -> BaseResponse[None]:
+    auth_service.set_password(
+        session=session,
+        user_id=current_user.id,
+        request=password_request,
+    )
+
+    delete_refresh_token_cookie(response)
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+
+    return create_success_response(
+        code=status.HTTP_200_OK,
+        message="Password set successfully.",
+        result=None,
     )
 
 
@@ -175,13 +197,7 @@ def change_password(
         request=password_change_request
     )
 
-    response.delete_cookie(
-        key=settings.REFRESH_COOKIE_NAME,
-        httponly=True,
-        secure=settings.REFRESH_COOKIE_SECURE,
-        samesite=settings.REFRESH_COOKIE_SAMESITE,
-        path="/auth"
-    )
+    delete_refresh_token_cookie(response)
 
     return create_success_response(
         code=status.HTTP_200_OK,
@@ -296,6 +312,18 @@ def set_refresh_token_cookie(response: Response, refresh_token: str) -> None:
         secure=settings.REFRESH_COOKIE_SECURE,
         samesite=settings.REFRESH_COOKIE_SAMESITE,
         max_age=get_refresh_cookie_max_age(),
+        path="/auth",
+    )
+
+
+def delete_refresh_token_cookie(response: Response) -> None:
+    """Delete the refresh-token cookie using the same scope used to set it."""
+
+    response.delete_cookie(
+        key=settings.REFRESH_COOKIE_NAME,
+        httponly=True,
+        secure=settings.REFRESH_COOKIE_SECURE,
+        samesite=settings.REFRESH_COOKIE_SAMESITE,
         path="/auth",
     )
 
