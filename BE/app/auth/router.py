@@ -2,12 +2,17 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app.auth.exceptions import MissingRefreshTokenError
+from app.auth.exceptions import (
+    InvalidGoogleNonceError,
+    MissingRefreshTokenError,
+)
 from app.database.databases import SessionDep
 from app.common.responses import BaseResponse, create_success_response
 from app.users.schemas import UserCreate, UserResponse
 from app.auth.schemas import (
+    AuthMethodsResponse,
     ChangePasswordRequest,
+    GoogleCredentialRequest,
     GoogleNonceResponse,
     Token,
 )
@@ -60,6 +65,40 @@ def login_user(
     )
 
     set_refresh_token_cookie(response, refresh_token)
+
+    return Token(access_token=access_token)
+
+
+@router.post(
+    "/google",
+    response_model=Token,
+    status_code=status.HTTP_200_OK,
+    summary="Authenticate a user using Google OAuth and return access and refresh tokens",
+)
+def login_with_google(
+    session: SessionDep,
+    request: Request,
+    response: Response,
+    google_request: GoogleCredentialRequest
+) -> Token:
+
+    nonce = get_google_nonce_from_cookie(request)
+
+    access_token, raw_refresh_token = auth_service.login_with_google(
+        session=session,
+        credential=google_request.credential,
+        nonce=nonce,
+        user_agent=auth_service.get_user_agent(request),
+        ip_address=auth_service.get_client_ip(request)
+    )
+
+    set_refresh_token_cookie(
+        response=response,
+        refresh_token=raw_refresh_token)
+
+    delete_google_nonce_cookie(response)
+
+    response.headers["Cache-Control"] = "no-store, max-age=0"
 
     return Token(access_token=access_token)
 
@@ -173,6 +212,80 @@ def generate_google_nonce(response: Response) -> BaseResponse[GoogleNonceRespons
     )
 
 
+@router.post(
+    "/google/link",
+    status_code=status.HTTP_200_OK,
+    summary="Link a Google account to the current user",
+)
+def link_google_account(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    request: Request,
+    response: Response,
+    google_request: GoogleCredentialRequest
+) -> BaseResponse[None]:
+    nonce = get_google_nonce_from_cookie(request)
+
+    auth_service.link_google_identity(
+        session=session,
+        user=current_user,
+        credential=google_request.credential,
+        nonce=nonce,
+    )
+
+    delete_google_nonce_cookie(response)
+
+    return create_success_response(
+        code=status.HTTP_200_OK,
+        message="Google account linked successfully.",
+        result=None
+    )
+
+
+@router.delete(
+    "/google/link",
+    status_code=status.HTTP_200_OK,
+    summary="Unlink the Google account from the current user",
+)
+def unlink_google_account(
+    session: SessionDep,
+    current_user: CurrentUserDep
+) -> BaseResponse[None]:
+    auth_service.unlink_google_identity(
+        session=session,
+        user=current_user
+    )
+
+    return create_success_response(
+        code=status.HTTP_200_OK,
+        message="Google account unlinked successfully.",
+        result=None
+    )
+
+@router.get(
+    "/methods",
+    status_code=status.HTTP_200_OK,
+    summary="Get the available authentication methods for the current user",
+)
+def get_auth_methods(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    response: Response
+) -> BaseResponse[AuthMethodsResponse]:
+    auth_methods = auth_service.get_auth_methods(
+        session=session,
+        user=current_user
+    )
+
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+
+    return create_success_response(
+        code=status.HTTP_200_OK,
+        message="Authentication methods retrieved successfully.",
+        result=auth_methods
+    )
+
+
 def set_refresh_token_cookie(response: Response, refresh_token: str) -> None:
     """Set the refresh token in an HTTP-only cookie."""
 
@@ -197,5 +310,27 @@ def set_google_nonce_cookie(response: Response, nonce: str) -> None:
         secure=settings.REFRESH_COOKIE_SECURE,
         samesite=settings.REFRESH_COOKIE_SAMESITE,
         max_age=settings.GOOGLE_NONCE_EXPIRE_SECONDS,
+        path="/auth/google",
+    )
+
+
+def get_google_nonce_from_cookie(request: Request) -> str:
+    """Retrieve the Google nonce from the its HttpOnly cookie."""
+
+    nonce = request.cookies.get(settings.GOOGLE_NONCE_COOKIE_NAME)
+    if not nonce:
+        raise InvalidGoogleNonceError()
+
+    return nonce
+
+
+def delete_google_nonce_cookie(response: Response) -> None:
+    """Delete the Google nonce cookie after an authentication attempt."""
+
+    response.delete_cookie(
+        key=settings.GOOGLE_NONCE_COOKIE_NAME,
+        httponly=True,
+        secure=settings.REFRESH_COOKIE_SECURE,
+        samesite=settings.REFRESH_COOKIE_SAMESITE,
         path="/auth/google",
     )
